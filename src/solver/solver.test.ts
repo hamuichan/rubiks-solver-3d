@@ -17,6 +17,33 @@ describe('SolverEngine & AnimationQueue Verification', () => {
     expect(plan.steps[0].stepId).toBe('already_solved');
   });
 
+  it('R 1번 회전된 상태에서는 Short-circuit 최적화로 정확히 R\' 1수만 반환해야 한다', () => {
+    const cube = CubeState.fromSolved();
+    cube.applyMove('R');
+
+    const plan = solveCube(cube);
+    expect(plan.totalMoves).toEqual(["R'"]);
+    expect(plan.steps[0].stepId).toBe('short_circuit');
+
+    cube.applyMove(plan.totalMoves[0]);
+    expect(cube.isSolved()).toBe(true);
+  });
+
+  it('R U 2번 회전된 상태에서는 Short-circuit 최적화로 정확히 U\' R\' 2수만 반환해야 한다', () => {
+    const cube = CubeState.fromSolved();
+    cube.applyMove('R');
+    cube.applyMove('U');
+
+    const plan = solveCube(cube);
+    expect(plan.totalMoves).toEqual(["U'", "R'"]);
+    expect(plan.steps[0].stepId).toBe('short_circuit');
+
+    for (const m of plan.totalMoves) {
+      cube.applyMove(m);
+    }
+    expect(cube.isSolved()).toBe(true);
+  });
+
   it('간단한 회전 수열로 섞인 큐브를 100% 복원해야 한다', () => {
     const cube = CubeState.fromSolved();
     cube.applyMove('R');
@@ -84,5 +111,46 @@ describe('SolverEngine & AnimationQueue Verification', () => {
 
     expect(executedMoves).toEqual(['R', 'U', "R'"]);
     expect(queue.getIsProcessing()).toBe(false);
+  });
+
+  it('일시정지 중 clear() 호출 시 잔여 큐가 즉시 폐기되고 진행 상태가 초기화되어야 한다', async () => {
+    const executedMoves: string[] = [];
+    const queue = new AnimationQueue(30);
+
+    queue.setExecutor(async (face, dir) => {
+      executedMoves.push(dir === 1 ? face : `${face}'`);
+      // 첫 번째 수 실행 후 일시정지
+      queue.pause();
+    });
+
+    queue.loadPlan({
+      totalMoves: ['R', 'U', "R'", "U'"],
+      steps: [],
+    });
+
+    await queue.start();
+
+    expect(queue.getIsPaused()).toBe(true);
+    expect(executedMoves.length).toBe(1);
+
+    // 수동 조작으로 인한 큐 무효화 트리거
+    queue.clear();
+
+    expect(queue.getIsProcessing()).toBe(false);
+    expect(queue.getIsPaused()).toBe(false);
+
+    // clear 후에는 더 이상 큐가 진행되지 않음
+    expect(executedMoves.length).toBe(1);
+  });
+
+  it('도중에 외부 개입으로 큐브 상태가 틀어진 경우 실제 CubeState.isSolved()는 엄격하게 false여야 한다', () => {
+    const cube = CubeState.fromSolved();
+    cube.applyMove('R');
+    cube.applyMove('U');
+
+    // 잘못된 공식 수열을 적용했을 때
+    cube.applyMove('D'); // 전혀 다른 수 개입
+
+    expect(cube.isSolved()).toBe(false);
   });
 });

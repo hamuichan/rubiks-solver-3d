@@ -83,6 +83,11 @@ export class AnimationQueue {
     this.listeners.onStateChange?.(false, false);
   }
 
+  // 큐를 즉시 폐기하고 진행 상태를 초기화
+  public clear(): void {
+    this.stop();
+  }
+
   private async processNext(): Promise<void> {
     if (!this.isProcessing || this.isPaused) return;
 

@@ -11,7 +11,46 @@ export function initKociembaSolver(): void {
   isSolverInitialized = true;
 }
 
+const ALL_MOVES: string[] = [
+  'U', "U'", 'U2',
+  'D', "D'", 'D2',
+  'L', "L'", 'L2',
+  'R', "R'", 'R2',
+  'F', "F'", 'F2',
+  'B', "B'", 'B2',
+];
+
+// 1~2수 이내로 즉시 복원 가능한지 브루트포스로 검사하는 Short-circuit 최적화
+function findShortCircuitSolution(cubeState: ICubeState): string[] | null {
+  // 1. Depth 1 (1수 검사: 18가지 경우의 수)
+  for (const m of ALL_MOVES) {
+    const testCube = cubeState.clone().applyMove(m);
+    if (testCube.isSolved()) {
+      return [m];
+    }
+  }
+
+  // 2. Depth 2 (2수 검사: 18 * 15 = 270가지 경우의 수)
+  for (const m1 of ALL_MOVES) {
+    const face1 = m1[0];
+    const cubeAfterM1 = cubeState.clone().applyMove(m1);
+
+    for (const m2 of ALL_MOVES) {
+      // 동일 면 연속 회전 배제 (예: R R' 등은 이미 1수에서 처리됨)
+      if (m2[0] === face1) continue;
+
+      const cubeAfterM2 = cubeAfterM1.clone().applyMove(m2);
+      if (cubeAfterM2.isSolved()) {
+        return [m1, m2];
+      }
+    }
+  }
+
+  return null;
+}
+
 export function solveCube(cubeState: ICubeState): SolvePlan {
+  // 0. 이미 복원된 상태
   if (cubeState.isSolved()) {
     return {
       totalMoves: [],
@@ -26,6 +65,23 @@ export function solveCube(cubeState: ICubeState): SolvePlan {
     };
   }
 
+  // 1. Short-circuit: 1~2수 이내 즉시 복원 검사 (R -> R', R U -> U' R' 등)
+  const quickSolution = findShortCircuitSolution(cubeState);
+  if (quickSolution) {
+    return {
+      totalMoves: quickSolution,
+      steps: [
+        {
+          stepId: 'short_circuit',
+          stepName: `직접 최적 복원 (${quickSolution.length}수)`,
+          description: `${quickSolution.length}수의 직접 역회전을 통해 불필요한 단계 없이 즉시 큐브를 완전 복원합니다.`,
+          moves: quickSolution,
+        },
+      ],
+    };
+  }
+
+  // 2. 3수 이상: Kociemba 2-Phase 최적 솔버 실행
   initKociembaSolver();
 
   const kociembaStr = cubeState.toKociembaString();
@@ -34,7 +90,6 @@ export function solveCube(cubeState: ICubeState): SolvePlan {
 
   const moves = solutionString.trim().split(/\s+/).filter(Boolean);
 
-  // Kociemba 2-Phase 공식의 중간 지점을 기준으로 단계별 플랜 분할
   const midIndex = Math.ceil(moves.length / 2);
   const phase1Moves = moves.slice(0, midIndex);
   const phase2Moves = moves.slice(midIndex);
