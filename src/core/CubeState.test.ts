@@ -16,8 +16,22 @@ describe('CubeState (54 Facelets Logical State Model)', () => {
     cube.applyMove('U');
 
     expect(cube.isSolved()).toBe(false);
-    // U 자체 면 중앙은 변하지 않음
     expect(cube.facelets[4]).toBe('U');
+  });
+
+  it('기본 6개 면 회전이 Kociemba 표준 문자열과 100% 일치해야 한다', async () => {
+    const { default: Cube } = await import('cubejs');
+    const faces = ['U', 'R', 'F', 'D', 'L', 'B'];
+
+    for (const f of faces) {
+      const ourCube = CubeState.fromSolved();
+      ourCube.applyMove(f);
+
+      const refCube = new Cube();
+      refCube.move(f);
+
+      expect(ourCube.toKociembaString(), `불일치 면: ${f}`).toBe(refCube.asString());
+    }
   });
 
   it('동일한 단일 면 회전을 4번 반복하면 항등원(원상태)으로 복구되어야 한다', () => {

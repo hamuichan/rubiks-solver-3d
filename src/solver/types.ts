@@ -1,4 +1,3 @@
-
 export interface SolveStep {
   stepId: string;
   stepName: string;
@@ -11,9 +10,9 @@ export interface SolvePlan {
   steps: SolveStep[];
 }
 
-export interface QueueTask {
-  id: string;
-  move: string;
-  stepName?: string;
-  onExecute?: () => void;
+export interface AnimationQueueListener {
+  onMoveStart?: (move: string, index: number, total: number, stepName?: string) => void;
+  onMoveComplete?: (move: string, index: number, total: number) => void;
+  onQueueComplete?: () => void;
+  onStateChange?: (isPlaying: boolean, isPaused: boolean) => void;
 }

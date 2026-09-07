@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { 
   Box, 
   Shuffle, 
@@ -18,28 +18,80 @@ import { CanvasView, CanvasViewHandle } from './scene/CanvasView';
 import { Face, RotationDirection } from './core/types';
 import { CubeState } from './core/CubeState';
 import { generateScramble, parseMoveNotation } from './core/scramble';
+import { solveCube, initKociembaSolver } from './solver/solver';
+import { AnimationQueue } from './solver/AnimationQueue';
 
 export default function App() {
   const canvasRef = useRef<CanvasViewHandle>(null);
   const cubeStateRef = useRef<CubeState>(CubeState.fromSolved());
+  const queueRef = useRef<AnimationQueue>(new AnimationQueue(250));
 
   const [speedMs, setSpeedMs] = useState(250);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isScrambling, setIsScrambling] = useState(false);
   const [isSolved, setIsSolved] = useState(true);
   const [currentStep, setCurrentStep] = useState('큐브 준비 완료 (초기 솔브 상태)');
   const [formulaQueue, setFormulaQueue] = useState<string[]>([]);
   const [activeFormulaIdx, setActiveFormulaIdx] = useState<number>(-1);
 
+  // Kociemba 솔버 탐색 테이블 초기화
+  useEffect(() => {
+    initKociembaSolver();
+  }, []);
+
+  // 애니메이션 큐 리스너 및 실행기 바인딩
+  useEffect(() => {
+    const queue = queueRef.current;
+    queue.setSpeed(speedMs);
+
+    queue.setExecutor(async (face, direction, duration) => {
+      let notation = face as string;
+      if (direction === -1) notation = `${face}'`;
+      else if (direction === 2) notation = `${face}2`;
+
+      cubeStateRef.current.applyMove(notation);
+      setIsSolved(cubeStateRef.current.isSolved());
+
+      if (canvasRef.current) {
+        await canvasRef.current.rotateFace(face, direction, duration);
+      }
+    });
+
+    queue.setListeners({
+      onMoveStart: (move, index, total) => {
+        setActiveFormulaIdx(index);
+        const progress = Math.round(((index + 1) / total) * 100);
+        setCurrentStep(`자동 맞춤 진행 중: ${move} (${index + 1}/${total}) · ${progress}%`);
+      },
+      onQueueComplete: () => {
+        setIsPlaying(false);
+        setIsPaused(false);
+        const solved = cubeStateRef.current.isSolved();
+        setIsSolved(solved);
+        setCurrentStep('자동 맞춤 완료! 큐브가 100% 복원되었습니다.');
+      },
+      onStateChange: (playing, paused) => {
+        setIsPlaying(playing);
+        setIsPaused(paused);
+      },
+    });
+  }, [speedMs]);
+
+  // 속도 조절 반영
+  const handleSpeedChange = (newSpeed: number) => {
+    setSpeedMs(newSpeed);
+    queueRef.current.setSpeed(newSpeed);
+  };
+
   // 수동 버튼 회전 (Singmaster 표기법)
   const handleManualRotate = useCallback(async (face: Face, direction: RotationDirection) => {
-    if (!canvasRef.current || canvasRef.current.getIsRotating() || isScrambling) return;
+    if (!canvasRef.current || canvasRef.current.getIsRotating() || isScrambling || isPlaying) return;
 
     let notation = face as string;
     if (direction === -1) notation = `${face}'`;
     else if (direction === 2) notation = `${face}2`;
 
-    // 논리 상태 동기 전이
     cubeStateRef.current.applyMove(notation);
     const solvedNow = cubeStateRef.current.isSolved();
     setIsSolved(solvedNow);
@@ -49,10 +101,12 @@ export default function App() {
     setCurrentStep(`수동 회전: ${notation} (${solvedNow ? '솔브 완료' : '미완성'})`);
 
     await canvasRef.current.rotateFace(face, direction, speedMs);
-  }, [speedMs, isScrambling]);
+  }, [speedMs, isScrambling, isPlaying]);
 
   // 3D 마우스/터치 드래그에 의한 회전 완료 시 논리 상태 동기화
   const handleMoveExecuted = useCallback((face: Face, direction: RotationDirection) => {
+    if (isPlaying) return;
+
     const notation = direction === 1 ? face : `${face}'`;
 
     cubeStateRef.current.applyMove(notation);
@@ -62,21 +116,23 @@ export default function App() {
     setFormulaQueue((prev) => [...prev.slice(-9), notation]);
     setActiveFormulaIdx((prev) => Math.min(prev + 1, 9));
     setCurrentStep(`드래그 조작: ${notation} (${solvedNow ? '솔브 완료' : '미완성'})`);
-  }, []);
+  }, [isPlaying]);
 
-  // WCA 규격 무작위 섞기 (Scramble) 애니메이션 시퀀스 실행
+  // WCA 규격 무작위 섞기 (Scramble)
   const handleScramble = useCallback(async () => {
-    if (!canvasRef.current || isScrambling || canvasRef.current.getIsRotating()) return;
+    if (!canvasRef.current || isScrambling || isPlaying || canvasRef.current.getIsRotating()) return;
 
+    queueRef.current.stop();
     setIsScrambling(true);
     setIsPlaying(false);
+    setIsPaused(false);
     setCurrentStep('WCA 규격 무작위 섞기 진행 중...');
 
     const scrambleMoves = generateScramble(22);
     setFormulaQueue(scrambleMoves);
     setActiveFormulaIdx(0);
 
-    const scrambleSpeed = Math.min(speedMs, 120);
+    const scrambleSpeed = Math.min(speedMs, 100);
 
     for (let i = 0; i < scrambleMoves.length; i++) {
       const move = scrambleMoves[i];
@@ -91,17 +147,58 @@ export default function App() {
     const solvedNow = cubeStateRef.current.isSolved();
     setIsSolved(solvedNow);
     setIsScrambling(false);
-    setCurrentStep('무작위 섞기 완료 (22수) - [자동 맞춤] 준비 완료');
-  }, [speedMs, isScrambling]);
+    setCurrentStep('무작위 섞기 완료 (22수) - [자동 맞춤]을 눌러 복원하세요');
+  }, [speedMs, isScrambling, isPlaying]);
+
+  // 자동 맞춤 (Auto Solve) 및 일시정지/재개 제어
+  const handleAutoSolveToggle = useCallback(async () => {
+    if (isScrambling) return;
+
+    // 이미 실행 중일 때: 일시정지 / 재개 토글
+    if (isPlaying) {
+      if (isPaused) {
+        queueRef.current.resume();
+        setCurrentStep('자동 맞춤 재개');
+      } else {
+        queueRef.current.pause();
+        setCurrentStep('자동 맞춤 일시정지됨');
+      }
+      return;
+    }
+
+    // 이미 맞춰진 상태인 경우
+    if (cubeStateRef.current.isSolved()) {
+      setCurrentStep('큐브가 이미 복원된 상태입니다. 먼저 [섞기]를 실행하세요.');
+      return;
+    }
+
+    // 솔버 엔진을 통한 복원 플랜 도출
+    setCurrentStep('Kociemba 2-Phase 최적 복원 경로 계산 중...');
+    const plan = solveCube(cubeStateRef.current);
+
+    if (plan.totalMoves.length === 0) {
+      setCurrentStep('복원 불필요 (이미 완성됨)');
+      return;
+    }
+
+    setFormulaQueue(plan.totalMoves);
+    setActiveFormulaIdx(0);
+    setCurrentStep(`최적 해법 도출 (${plan.totalMoves.length}수) - 자동 복원 시작`);
+
+    queueRef.current.loadPlan(plan);
+    await queueRef.current.start();
+  }, [isPlaying, isPaused, isScrambling]);
 
   // 큐브 및 상태 원위치 리셋
   const handleReset = useCallback(() => {
     if (isScrambling) return;
 
+    queueRef.current.stop();
     canvasRef.current?.resetCube();
     cubeStateRef.current = CubeState.fromSolved();
     setIsSolved(true);
     setIsPlaying(false);
+    setIsPaused(false);
     setCurrentStep('초기화 완료 (Solved 상태)');
     setFormulaQueue([]);
     setActiveFormulaIdx(-1);
@@ -143,10 +240,10 @@ export default function App() {
 
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#24221e] border border-[#35322c] text-[#8e8b82]">
             <Compass className="w-3.5 h-3.5 text-[#cc785c]" />
-            <span>54 Facelets Sync</span>
+            <span>Kociemba 2-Phase Engine</span>
           </div>
           <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#cc785c]/10 text-[#e09075] border border-[#cc785c]/25 font-mono">
-            Phase 3
+            Phase 4
           </span>
         </div>
       </header>
@@ -161,16 +258,20 @@ export default function App() {
 
           {/* Singmaster 회전 공식 HUD 오버레이 */}
           {formulaQueue.length > 0 && (
-            <div className="absolute bottom-6 left-6 right-6 md:right-auto md:w-[480px] p-4 rounded-xl bg-[#201e1b]/95 border border-[#35322c] shadow-xl backdrop-blur-md z-10 pointer-events-auto">
+            <div className="absolute bottom-6 left-6 right-6 md:right-auto md:w-[500px] p-4 rounded-xl bg-[#201e1b]/95 border border-[#35322c] shadow-xl backdrop-blur-md z-10 pointer-events-auto">
               <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-[#dedcd5]">
                   <Sparkles className="w-3.5 h-3.5 text-[#cc785c]" />
                   <span>
-                    {isScrambling ? 'WCA 스크램블 진행 중...' : '회전 공식 시퀀스 (Singmaster)'}
+                    {isScrambling 
+                      ? 'WCA 스크램블 진행 중...' 
+                      : isPlaying 
+                      ? '자동 맞춤 복원 시퀀스 실행 중' 
+                      : '회전 공식 시퀀스 (Singmaster)'}
                   </span>
                 </div>
                 <span className="text-[10px] text-[#8e8b82] font-mono">
-                  {activeFormulaIdx + 1} / {formulaQueue.length}
+                  {Math.max(0, activeFormulaIdx + 1)} / {formulaQueue.length} Moves
                 </span>
               </div>
 
@@ -203,7 +304,13 @@ export default function App() {
                     현재 수: <strong className="text-[#f4f3ef] font-mono">{formulaQueue[activeFormulaIdx] || '-'}</strong>
                   </span>
                 </div>
-                <span>{isScrambling ? '스크램블 적용 중...' : '마우스 드래그 / 키패드로 조작'}</span>
+                <span>
+                  {isPlaying 
+                    ? isPaused ? '일시정지됨' : '순차 복원 중...' 
+                    : isScrambling 
+                    ? '스크램블 중...' 
+                    : '마우스 드래그 / 키패드로 조작'}
+                </span>
               </div>
             </div>
           )}
@@ -222,7 +329,9 @@ export default function App() {
               <p className="text-[#8e8b82] text-[11px]">
                 {isSolved 
                   ? '큐브가 모두 맞춰진 상태입니다. [섞기]를 눌러 큐브를 섞어보세요.'
-                  : '큐브가 섞여 있습니다. [자동 맞춤]을 누르면 해법 알고리즘이 실행됩니다.'}
+                  : isPlaying
+                  ? 'Kociemba 2-Phase 알고리즘이 실시간으로 3D 큐브를 복원하고 있습니다.'
+                  : '큐브가 섞여 있습니다. [자동 맞춤]을 누르면 즉시 복원 공식이 계산되어 실행됩니다.'}
               </p>
             </div>
           </div>
@@ -232,7 +341,7 @@ export default function App() {
             <h3 className="text-[11px] font-semibold tracking-wide uppercase text-[#8e8b82]">제어</h3>
             <div className="grid grid-cols-2 gap-2">
               <button 
-                disabled={isScrambling}
+                disabled={isScrambling || isPlaying}
                 className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-[#282522] hover:bg-[#302d29] disabled:opacity-50 text-[#dedcd5] text-xs font-medium border border-[#3a3731] transition active:scale-[0.98]"
                 onClick={handleScramble}
               >
@@ -242,17 +351,25 @@ export default function App() {
 
               <button 
                 disabled={isScrambling}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-[#cc785c] hover:bg-[#ba674d] disabled:opacity-50 text-white text-xs font-medium shadow-sm transition active:scale-[0.98]"
-                onClick={() => {
-                  setIsPlaying(!isPlaying);
-                  setCurrentStep('Phase 4에서 복원 솔버 알고리즘이 순차 실행됩니다.');
-                }}
+                className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg text-white text-xs font-medium shadow-sm transition active:scale-[0.98] ${
+                  isPlaying 
+                    ? isPaused ? 'bg-amber-600 hover:bg-amber-500' : 'bg-slate-700 hover:bg-slate-600'
+                    : 'bg-[#cc785c] hover:bg-[#ba674d]'
+                }`}
+                onClick={handleAutoSolveToggle}
               >
                 {isPlaying ? (
-                  <>
-                    <Pause className="w-3.5 h-3.5" />
-                    일시정지
-                  </>
+                  isPaused ? (
+                    <>
+                      <Play className="w-3.5 h-3.5" />
+                      재개 (Resume)
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="w-3.5 h-3.5" />
+                      일시정지
+                    </>
+                  )
                 ) : (
                   <>
                     <Play className="w-3.5 h-3.5" />
@@ -287,8 +404,7 @@ export default function App() {
               max={800}
               step={20}
               value={speedMs}
-              disabled={isScrambling}
-              onChange={(e) => setSpeedMs(Number(e.target.value))}
+              onChange={(e) => handleSpeedChange(Number(e.target.value))}
               className="w-full h-1.5 bg-[#181715] rounded-lg appearance-none cursor-pointer accent-[#cc785c]"
             />
             <div className="flex justify-between text-[10px] text-[#8e8b82]">
@@ -308,7 +424,7 @@ export default function App() {
               {(['U', 'D', 'L', 'R', 'F', 'B'] as Face[]).map((face) => (
                 <div key={face} className="flex gap-1">
                   <button 
-                    disabled={isScrambling}
+                    disabled={isScrambling || isPlaying}
                     onClick={() => handleManualRotate(face, 1)}
                     className="flex-1 py-1.5 rounded-md bg-[#24221e] hover:bg-[#2d2a25] disabled:opacity-50 text-[#dedcd5] font-medium border border-[#35322c] transition active:scale-95"
                     title={`${face} 시계방향 90도`}
@@ -316,7 +432,7 @@ export default function App() {
                     {face}
                   </button>
                   <button 
-                    disabled={isScrambling}
+                    disabled={isScrambling || isPlaying}
                     onClick={() => handleManualRotate(face, -1)}
                     className="flex-1 py-1.5 rounded-md bg-[#1d1b18] hover:bg-[#282522] disabled:opacity-50 text-[#cc785c] font-medium border border-[#35322c] transition active:scale-95"
                     title={`${face}' 반시계방향 90도`}
@@ -332,10 +448,10 @@ export default function App() {
           <div className="mt-auto pt-3 border-t border-[#2d2a25] text-[11px] text-[#8e8b82] flex items-center justify-between">
             <div className="flex items-center gap-1 text-[#625f58]">
               <HelpCircle className="w-3.5 h-3.5" />
-              <span>상태 동기화</span>
+              <span>솔버 큐 엔진</span>
             </div>
             <span className="text-[10px] font-mono text-[#8e8b82]">
-              {isSolved ? 'CubeState Solved' : 'CubeState Unsolved'}
+              {isPlaying ? (isPaused ? 'Queue Paused' : 'Queue Running') : 'Queue Idle'}
             </span>
           </div>
         </aside>
