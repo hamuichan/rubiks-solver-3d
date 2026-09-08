@@ -56,30 +56,30 @@
 본 프로젝트는 단일 책임 원칙(SRP)과 엄격한 단방향 의존성 흐름을 따르는 **4계층 클린 아키텍처**로 설계되었습니다.
 
 ```mermaid
-flowchart TB
-    subgraph Layer4["Layer 4: UI Presentation (React 18)"]
-        App["App.tsx (Global State / Orchestrator)"]
-        HUD["FormulaHUD (Singmaster Ticker)"]
-        Control["ControlPanel (Speed / Actions)"]
-        Guide["StepGuide (2-Phase Stage HUD)"]
-        Modal["ShortcutsModal (Keybindings)"]
+graph TD
+    subgraph Layer4 [Layer 4: UI Presentation - React 18]
+        App[App.tsx - Global State and Orchestrator]
+        HUD[FormulaHUD - Singmaster Ticker]
+        Control[ControlPanel - Speed and Actions]
+        Guide[StepGuide - 2-Phase Stage HUD]
+        Modal[ShortcutsModal - Keybindings]
     end
 
-    subgraph Layer3["Layer 3: Solver Engine and Queue"]
-        Solver["solveCube (Kociemba 2-Phase + Short-circuit BFS)"]
-        Queue["AnimationQueue (Async Lock, Pause/Resume, Speed)"]
+    subgraph Layer3 [Layer 3: Solver Engine and Queue]
+        Solver[solveCube - Kociemba 2-Phase and Short Circuit]
+        Queue[AnimationQueue - Async Lock, Pause, Resume]
     end
 
-    subgraph Layer2["Layer 2: 3D Graphics Scene (Three.js)"]
-        Scene["CubeScene (Renderer, Camera, Floor Shadow)"]
-        Raycast["RaycastInteraction (Pointer Events, Tangent Dot Math)"]
-        RotMgr["RotationManager (PivotGroup, Easing, Basis Snapping)"]
-        CubieMesh["CubieMesh (MeshPhysicalMaterial, Texture Cache)"]
+    subgraph Layer2 [Layer 2: 3D Graphics Scene - Three.js]
+        Scene[CubeScene - Renderer, Camera, Floor Shadow]
+        Raycast[RaycastInteraction - Pointer Events and Tangent Math]
+        RotMgr[RotationManager - PivotGroup and Matrix Snapping]
+        CubieMesh[CubieMesh - MeshPhysicalMaterial and Textures]
     end
 
-    subgraph Layer1["Layer 1: Core State Machine (Mathematical Domain)"]
-        State["CubeState (54 Facelet Permutation Model)"]
-        Scramble["WCA Scramble Generator (Axis Cancellation Filter)"]
+    subgraph Layer1 [Layer 1: Core State Machine - Mathematical Domain]
+        State[CubeState - 54 Facelet Permutation Model]
+        Scramble[WCA Scramble Generator - Axis Filter]
     end
 
     App --> HUD
@@ -255,7 +255,7 @@ rubiks-solver-3d/
 
 ### 1. 저장소 복제 및 의존성 설치
 ```bash
-git clone https://github.com/hauichan/rubiks-solver-3d.git
+git clone https://github.com/hamuichan/rubiks-solver-3d.git
 cd rubiks-solver-3d
 npm install
 ```
