@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Box, CheckCircle2, AlertCircle, Compass, Keyboard } from 'lucide-react';
 
 interface HeaderProps {
@@ -5,7 +6,7 @@ interface HeaderProps {
   onToggleShortcuts: () => void;
 }
 
-export function Header({ isSolved, onToggleShortcuts }: HeaderProps) {
+export const Header = memo(function Header({ isSolved, onToggleShortcuts }: HeaderProps) {
   return (
     <header className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-[#2d2a25] bg-[#1d1b18]/85 backdrop-blur-md">
       <div className="flex items-center gap-3">
@@ -55,4 +56,4 @@ export function Header({ isSolved, onToggleShortcuts }: HeaderProps) {
       </div>
     </header>
   );
-}
+});

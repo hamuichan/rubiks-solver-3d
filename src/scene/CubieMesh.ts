@@ -66,6 +66,12 @@ function getCachedTexture(colorHex: number): THREE.CanvasTexture {
   return textureCache.get(colorHex)!;
 }
 
+// 텍스처 메모리 완전 해제 헬퍼
+export function disposeTextureCache(): void {
+  textureCache.forEach((texture) => texture.dispose());
+  textureCache.clear();
+}
+
 const innerMaterial = new THREE.MeshStandardMaterial({
   color: FACE_COLORS.BODY,
   roughness: 0.65,

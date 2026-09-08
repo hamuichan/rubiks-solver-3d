@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Shuffle, Play, Pause, RotateCcw, Clock } from 'lucide-react';
 import { Face, RotationDirection } from '../core/types';
 
@@ -13,7 +14,7 @@ interface ControlPanelProps {
   onManualRotate: (face: Face, direction: RotationDirection) => void;
 }
 
-export function ControlPanel({
+export const ControlPanel = memo(function ControlPanel({
   speedMs,
   onSpeedChange,
   isPlaying,
@@ -155,4 +156,4 @@ export function ControlPanel({
       </div>
     </div>
   );
-}
+});

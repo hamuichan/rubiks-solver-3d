@@ -82,35 +82,50 @@ export function solveCube(cubeState: ICubeState): SolvePlan {
   }
 
   // 2. 3수 이상: Kociemba 2-Phase 최적 솔버 실행
-  initKociembaSolver();
+  try {
+    initKociembaSolver();
 
-  const kociembaStr = cubeState.toKociembaString();
-  const cube = Cube.fromString(kociembaStr);
-  const solutionString = cube.solve();
+    const kociembaStr = cubeState.toKociembaString();
+    const cube = Cube.fromString(kociembaStr);
+    const solutionString = cube.solve();
 
-  const moves = solutionString.trim().split(/\s+/).filter(Boolean);
+    const moves = solutionString.trim().split(/\s+/).filter(Boolean);
 
-  const midIndex = Math.ceil(moves.length / 2);
-  const phase1Moves = moves.slice(0, midIndex);
-  const phase2Moves = moves.slice(midIndex);
+    const midIndex = Math.ceil(moves.length / 2);
+    const phase1Moves = moves.slice(0, midIndex);
+    const phase2Moves = moves.slice(midIndex);
 
-  const steps: SolveStep[] = [
-    {
-      stepId: 'phase_1',
-      stepName: '1단계: 하위군 G1 축소 및 엣지 방향 정렬',
-      description: '모든 엣지 및 코너의 방향성을 보정하여 <U, D, R2, L2, F2, B2> 군으로 환원합니다.',
-      moves: phase1Moves,
-    },
-    {
-      stepId: 'phase_2',
-      stepName: '2단계: 코너 및 엣지 최종 슬롯 복원',
-      description: '정렬된 축을 바탕으로 20수 내외의 최단 경로로 6개 면 전체를 완전 복원합니다.',
-      moves: phase2Moves,
-    },
-  ];
+    const steps: SolveStep[] = [
+      {
+        stepId: 'phase_1',
+        stepName: '1단계: 하위군 G1 축소 및 엣지 방향 정렬',
+        description: '모든 엣지 및 코너의 방향성을 보정하여 <U, D, R2, L2, F2, B2> 군으로 환원합니다.',
+        moves: phase1Moves,
+      },
+      {
+        stepId: 'phase_2',
+        stepName: '2단계: 코너 및 엣지 최종 슬롯 복원',
+        description: '정렬된 축을 바탕으로 20수 내외의 최단 경로로 6개 면 전체를 완전 복원합니다.',
+        moves: phase2Moves,
+      },
+    ];
 
-  return {
-    totalMoves: moves,
-    steps,
-  };
+    return {
+      totalMoves: moves,
+      steps,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : '알 수 없는 상태 에러';
+    return {
+      totalMoves: [],
+      steps: [
+        {
+          stepId: 'solve_error',
+          stepName: '복원 경로 계산 실패',
+          description: `큐브 상태가 유효하지 않거나 솔버에서 오류가 발생했습니다 (${errorMsg}).`,
+          moves: [],
+        },
+      ],
+    };
+  }
 }

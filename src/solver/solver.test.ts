@@ -153,4 +153,22 @@ describe('SolverEngine & AnimationQueue Verification', () => {
 
     expect(cube.isSolved()).toBe(false);
   });
+
+  it('유효하지 않거나 손상된 큐브 상태가 전달되었을 때 크래시 없이 solve_error 플랜을 반환해야 한다', () => {
+    const mockInvalidCube = {
+      facelets: [],
+      isSolved: () => false,
+      clone: () => mockInvalidCube,
+      toKociembaString: () => {
+        throw new Error('Corrupted Facelet Data');
+      },
+      applyMove: () => mockInvalidCube,
+    };
+
+    const plan = solveCube(mockInvalidCube);
+    expect(plan.totalMoves.length).toBe(0);
+    expect(plan.steps.length).toBe(1);
+    expect(plan.steps[0].stepId).toBe('solve_error');
+    expect(plan.steps[0].description).toContain('Corrupted Facelet Data');
+  });
 });

@@ -17,6 +17,9 @@ export const CanvasView = forwardRef<CanvasViewHandle, CanvasViewProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const sceneInstanceRef = useRef<CubeScene | null>(null);
 
+    const onMoveExecutedRef = useRef(onMoveExecuted);
+    onMoveExecutedRef.current = onMoveExecuted;
+
     useImperativeHandle(ref, () => ({
       rotateFace: (face: Face, direction: RotationDirection, durationMs?: number) => {
         if (!sceneInstanceRef.current) return Promise.resolve();
@@ -37,9 +40,9 @@ export const CanvasView = forwardRef<CanvasViewHandle, CanvasViewProps>(
       const cubeScene = new CubeScene(container);
       sceneInstanceRef.current = cubeScene;
 
-      if (onMoveExecuted) {
-        cubeScene.setOnMove(onMoveExecuted);
-      }
+      cubeScene.setOnMove((face, direction) => {
+        onMoveExecutedRef.current?.(face, direction);
+      });
 
       const resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
@@ -57,16 +60,10 @@ export const CanvasView = forwardRef<CanvasViewHandle, CanvasViewProps>(
       };
     }, []);
 
-    useEffect(() => {
-      if (sceneInstanceRef.current && onMoveExecuted) {
-        sceneInstanceRef.current.setOnMove(onMoveExecuted);
-      }
-    }, [onMoveExecuted]);
-
     return (
       <div 
         ref={containerRef} 
-        className="w-full h-full relative cursor-grab active:cursor-grabbing outline-none"
+        className="w-full h-full relative cursor-grab active:cursor-grabbing outline-none touch-none"
       />
     );
   }

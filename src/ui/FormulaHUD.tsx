@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { getMoveDescription } from './moveDescriptions';
 
@@ -10,7 +10,7 @@ interface FormulaHUDProps {
   isPaused: boolean;
 }
 
-export function FormulaHUD({
+export const FormulaHUD = memo(function FormulaHUD({
   formulaQueue,
   activeFormulaIdx,
   isScrambling,
@@ -39,7 +39,7 @@ export function FormulaHUD({
   const currentMove = formulaQueue[activeFormulaIdx] || '-';
 
   return (
-    <div className="absolute bottom-6 left-6 right-6 md:right-auto md:w-[520px] rounded-xl bg-[#1f1e1d]/95 border border-[#32302c] shadow-lg backdrop-blur-md z-10 pointer-events-auto overflow-hidden">
+    <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-auto sm:w-[500px] md:w-[520px] rounded-xl bg-[#1f1e1d]/95 border border-[#32302c] shadow-lg backdrop-blur-md z-10 pointer-events-auto overflow-hidden">
       {/* 상단 미니멀 슬림 프로그레스 바 */}
       <div className="w-full h-1 bg-[#181816]">
         <div
@@ -120,4 +120,4 @@ export function FormulaHUD({
       </div>
     </div>
   );
-}
+});

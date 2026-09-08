@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Face, RotationDirection } from '../core/types';
-import { createAllCubies } from './CubieMesh';
+import { createAllCubies, disposeTextureCache } from './CubieMesh';
 import { RotationManager } from './RotationManager';
 import { RaycastInteraction } from './RaycastInteraction';
 
@@ -13,6 +13,7 @@ export class CubeScene {
   private controls: OrbitControls;
   private cubeGroup: THREE.Group;
   private cubies: THREE.Mesh[] = [];
+  private shadowMesh: THREE.Mesh | null = null;
 
   private rotationManager: RotationManager;
   private interaction: RaycastInteraction;
@@ -122,7 +123,32 @@ export class CubeScene {
     cancelAnimationFrame(this.animationFrameId);
 
     this.interaction.destroy();
+    this.rotationManager.dispose();
     this.controls.dispose();
+
+    // 1. 큐비 지오메트리 및 머티리얼 리소스 해제
+    this.cubies.forEach((cubie) => {
+      cubie.geometry.dispose();
+      if (Array.isArray(cubie.material)) {
+        cubie.material.forEach((m) => m.dispose());
+      }
+    });
+    this.cubies = [];
+
+    // 2. 바닥 그림자 메시 및 텍스처 해제
+    if (this.shadowMesh) {
+      this.shadowMesh.geometry.dispose();
+      const mat = this.shadowMesh.material as THREE.MeshBasicMaterial;
+      if (mat.map) {
+        mat.map.dispose();
+      }
+      mat.dispose();
+      this.shadowMesh = null;
+    }
+
+    // 3. 캐시된 캔버스 텍스처 및 씬 그래프 정리
+    disposeTextureCache();
+    this.scene.clear();
 
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
@@ -184,10 +210,10 @@ export class CubeScene {
       depthWrite: false,
     });
 
-    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
-    shadowMesh.rotation.x = -Math.PI / 2;
-    shadowMesh.position.y = -2.25;
-    this.scene.add(shadowMesh);
+    this.shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+    this.shadowMesh.rotation.x = -Math.PI / 2;
+    this.shadowMesh.position.y = -2.25;
+    this.scene.add(this.shadowMesh);
   }
 
   private renderLoop = (): void => {

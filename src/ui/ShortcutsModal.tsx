@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { X, Keyboard } from 'lucide-react';
 
 interface ShortcutsModalProps {
@@ -5,7 +6,7 @@ interface ShortcutsModalProps {
   onClose: () => void;
 }
 
-export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
+export const ShortcutsModal = memo(function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
   if (!isOpen) return null;
 
   const shortcuts = [
@@ -52,4 +53,4 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
       </div>
     </div>
   );
-}
+});

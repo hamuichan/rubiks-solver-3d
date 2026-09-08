@@ -5,6 +5,7 @@ export class RotationManager {
   private cubeGroup: THREE.Group;
   private pivotGroup: THREE.Group;
   private isRotating = false;
+  private currentRafId: number | null = null;
 
   constructor(cubeGroup: THREE.Group) {
     this.cubeGroup = cubeGroup;
@@ -14,6 +15,14 @@ export class RotationManager {
 
   public getIsRotating(): boolean {
     return this.isRotating;
+  }
+
+  public dispose(): void {
+    if (this.currentRafId !== null) {
+      cancelAnimationFrame(this.currentRafId);
+      this.currentRafId = null;
+    }
+    this.isRotating = false;
   }
 
   public getCubiesForFace(face: Face): THREE.Mesh[] {
@@ -141,15 +150,16 @@ export class RotationManager {
         this.pivotGroup.updateMatrixWorld(true);
 
         if (progress < 1) {
-          requestAnimationFrame(animate);
+          this.currentRafId = requestAnimationFrame(animate);
         } else {
           this.finalizeRotation(targetCubies);
           this.isRotating = false;
+          this.currentRafId = null;
           resolve();
         }
       };
 
-      requestAnimationFrame(animate);
+      this.currentRafId = requestAnimationFrame(animate);
     });
   }
 

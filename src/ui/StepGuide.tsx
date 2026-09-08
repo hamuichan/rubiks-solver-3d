@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Layers, CheckCircle2, Clock } from 'lucide-react';
 
 interface StepGuideProps {
@@ -8,7 +9,7 @@ interface StepGuideProps {
   totalMoves: number;
 }
 
-export function StepGuide({
+export const StepGuide = memo(function StepGuide({
   currentStep,
   isSolved,
   isPlaying,
@@ -107,4 +108,4 @@ export function StepGuide({
       </div>
     </div>
   );
-}
+});

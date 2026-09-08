@@ -74,10 +74,10 @@ export default function App() {
     });
   }, [speedMs]);
 
-  const handleSpeedChange = (newSpeed: number) => {
+  const handleSpeedChange = useCallback((newSpeed: number) => {
     setSpeedMs(newSpeed);
     queueRef.current.setSpeed(newSpeed);
-  };
+  }, []);
 
   // 수동 회전 조작 (버튼 클릭)
   const handleManualRotate = useCallback(async (face: Face, direction: RotationDirection) => {
@@ -189,10 +189,20 @@ export default function App() {
     }
 
     setCurrentStep('Kociemba 2-Phase 최적 복원 경로 계산 중...');
-    const plan = solveCube(cubeStateRef.current);
+    let plan;
+    try {
+      plan = solveCube(cubeStateRef.current);
+    } catch {
+      setCurrentStep('복원 경로 계산 중 오류가 발생했습니다. 큐브를 초기화한 후 다시 시도하세요.');
+      return;
+    }
 
     if (plan.totalMoves.length === 0) {
-      setCurrentStep('복원 불필요 (이미 완성됨)');
+      if (plan.steps.length > 0 && plan.steps[0].stepId === 'solve_error') {
+        setCurrentStep(`해법 도출 실패: ${plan.steps[0].description}`);
+      } else {
+        setCurrentStep('복원 불필요 (이미 완성됨)');
+      }
       return;
     }
 
@@ -242,18 +252,26 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleAutoSolveToggle, handleScramble, handleReset]);
 
+  const handleToggleShortcuts = useCallback(() => {
+    setIsShortcutsOpen((prev) => !prev);
+  }, []);
+
+  const handleCloseShortcuts = useCallback(() => {
+    setIsShortcutsOpen(false);
+  }, []);
+
   return (
     <div className="relative w-screen h-screen bg-[#181816] text-[#faf9f5] flex flex-col select-none overflow-hidden font-sans">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#24221f] via-[#181816] to-[#121210] pointer-events-none opacity-80" />
 
       <Header
         isSolved={isSolved}
-        onToggleShortcuts={() => setIsShortcutsOpen((prev) => !prev)}
+        onToggleShortcuts={handleToggleShortcuts}
       />
 
-      <main className="relative flex-1 flex overflow-hidden">
+      <main className="relative flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* 3D 뷰포트 영역 */}
-        <section className="relative flex-1 flex items-center justify-center overflow-hidden bg-[#141412]">
+        <section className="relative flex-1 min-h-[350px] lg:min-h-0 flex items-center justify-center overflow-hidden bg-[#141412]">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#252320_1px,transparent_1px),linear-gradient(to_bottom,#252320_1px,transparent_1px)] bg-[size:52px_52px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-25 pointer-events-none" />
 
           <CanvasView ref={canvasRef} onMoveExecuted={handleMoveExecuted} />
@@ -268,8 +286,8 @@ export default function App() {
           />
         </section>
 
-        {/* 우측 사이드 패널 */}
-        <aside className="w-80 md:w-92 border-l border-[#2d2a25] bg-[#1d1b18] p-5 flex flex-col gap-4 overflow-y-auto z-10">
+        {/* 사이드 / 하단 컨트롤 패널 */}
+        <aside className="w-full lg:w-80 xl:w-92 border-t lg:border-t-0 lg:border-l border-[#2d2a25] bg-[#1d1b18] p-4 lg:p-5 flex flex-col gap-4 overflow-y-auto z-10 max-h-[48vh] lg:max-h-none">
           <StepGuide
             currentStep={currentStep}
             isSolved={isSolved}
@@ -304,7 +322,7 @@ export default function App() {
 
       <ShortcutsModal
         isOpen={isShortcutsOpen}
-        onClose={() => setIsShortcutsOpen(false)}
+        onClose={handleCloseShortcuts}
       />
     </div>
   );
