@@ -57,39 +57,43 @@
 
 ```mermaid
 flowchart TB
-    subgraph Layer4 ["Layer 4: UI Presentation (React 18)"]
-        App["App.tsx (Global State & Orchestrator)"]
+    subgraph Layer4["Layer 4: UI Presentation (React 18)"]
+        App["App.tsx (Global State / Orchestrator)"]
         HUD["FormulaHUD (Singmaster Ticker)"]
-        Control["ControlPanel (Speed & Actions)"]
+        Control["ControlPanel (Speed / Actions)"]
         Guide["StepGuide (2-Phase Stage HUD)"]
         Modal["ShortcutsModal (Keybindings)"]
     end
 
-    subgraph Layer3 ["Layer 3: Solver Engine & Queue"]
+    subgraph Layer3["Layer 3: Solver Engine and Queue"]
         Solver["solveCube (Kociemba 2-Phase + Short-circuit BFS)"]
         Queue["AnimationQueue (Async Lock, Pause/Resume, Speed)"]
     end
 
-    subgraph Layer2 ["Layer 2: 3D Graphics Scene (Three.js)"]
+    subgraph Layer2["Layer 2: 3D Graphics Scene (Three.js)"]
         Scene["CubeScene (Renderer, Camera, Floor Shadow)"]
-        Raycast["RaycastInteraction (Pointer Events & Tangent Dot Math)"]
-        RotMgr["RotationManager (PivotGroup, Easing & Basis Snapping)"]
-        CubieMesh["CubieMesh (MeshPhysicalMaterial & Texture Cache)"]
+        Raycast["RaycastInteraction (Pointer Events, Tangent Dot Math)"]
+        RotMgr["RotationManager (PivotGroup, Easing, Basis Snapping)"]
+        CubieMesh["CubieMesh (MeshPhysicalMaterial, Texture Cache)"]
     end
 
-    subgraph Layer1 ["Layer 1: Core State Machine (Mathematical Domain)"]
+    subgraph Layer1["Layer 1: Core State Machine (Mathematical Domain)"]
         State["CubeState (54 Facelet Permutation Model)"]
         Scramble["WCA Scramble Generator (Axis Cancellation Filter)"]
     end
 
-    App --> HUD & Control & Guide & Modal
+    App --> HUD
+    App --> Control
+    App --> Guide
+    App --> Modal
     App --> Queue
     App --> State
     App --> Scene
     Queue --> Solver
     Queue --> Scene
     Raycast --> Scene
-    Scene --> RotMgr --> CubieMesh
+    Scene --> RotMgr
+    RotMgr --> CubieMesh
     Solver --> State
     Scramble --> State
 ```
