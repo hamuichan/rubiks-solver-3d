@@ -251,7 +251,7 @@ rubiks-solver-3d/
 
 ### 1. 저장소 복제 및 의존성 설치
 ```bash
-git clone https://github.com/ham-uichan/rubiks-solver-3d.git
+git clone https://github.com/hauichan/rubiks-solver-3d.git
 cd rubiks-solver-3d
 npm install
 ```
